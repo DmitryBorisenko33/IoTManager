@@ -1,6 +1,6 @@
 #pragma once
 
-#define FIRMWARE_VERSION 288
+#define FIRMWARE_VERSION 296
 
 #ifdef esp8266_4mb
 #define FIRMWARE_NAME "esp8266_4mb"
@@ -46,6 +46,7 @@
 
 #define NUM_BUTTONS 6
 #define MQTT_RECONNECT_INTERVAL 20000
+#define CHANGE_BROKER_AFTER 5
 #define TELEMETRY_UPDATE_INTERVAL_MIN 60
 #define DEVICE_CONFIG_FILE "s.conf.csv"
 #define DEVICE_SCENARIO_FILE "s.scen.txt"

@@ -12,12 +12,15 @@ void telegramInit() {
         if (!myBot) {
             myBot = new CTBot();
         }
+#ifdef ESP32
+        myBot->useDNS(true);
+#endif
         myBot->setTelegramToken(token);
         myBot->enableUTF8Encoding(true);
         if (myBot->testConnection()) {
-            SerialPrint("I", "Telegram", "Connected");
+            SerialPrint("I", F("Telegram"), F("Connected"));
         } else {
-            SerialPrint("E", "Telegram", "Not connected");
+            SerialPrint("E", F("Telegram"), F("Not connected"));
         }
         SerialPrint("I", F("Telegram"), F("Telegram Init"));
     }
@@ -34,7 +37,7 @@ void handleTelegram() {
                 if (difference >= 10000) {
                     prevMillis = millis();
                     if (myBot->getNewMessage(msg)) {
-                        SerialPrint("->", "Telegram", "chat ID: " + String(msg.sender.id) + ", msg: " + String(msg.text));
+                        SerialPrint("->", F("Telegram"), "chat ID: " + String(msg.sender.id) + ", msg: " + String(msg.text));
                         if (jsonReadBool(configSetupJson, "autos")) {
                             jsonWriteInt(configSetupJson, "chatId", msg.sender.id);
                             saveConfig();
@@ -53,15 +56,15 @@ void telegramMsgParse(String msg) {
         msg.replace("_", " ");
         loopCmdAdd(String(msg) + ",");
         myBot->sendMessage(jsonReadInt(configSetupJson, "chatId"), "order done");
-        SerialPrint("<-", "Telegram", "chat ID: " + String(jsonReadInt(configSetupJson, "chatId")) + ", msg: " + String(msg));
+        SerialPrint("<-", F("Telegram"), "chat ID: " + String(jsonReadInt(configSetupJson, "chatId")) + ", msg: " + String(msg));
     } else if (msg.indexOf("get") != -1) {
         msg = deleteBeforeDelimiter(msg, "_");
         myBot->sendMessage(jsonReadInt(configSetupJson, "chatId"), getValue(msg));  //jsonReadStr(configLiveJson , msg));
-        SerialPrint("<-", "Telegram", "chat ID: " + String(jsonReadInt(configSetupJson, "chatId")) + ", msg: " + String(msg));
+        SerialPrint("<-", F("Telegram"), "chat ID: " + String(jsonReadInt(configSetupJson, "chatId")) + ", msg: " + String(msg));
     } else if (msg.indexOf("all") != -1) {
         String list = returnListOfParams();
         myBot->sendMessage(jsonReadInt(configSetupJson, "chatId"), list);
-        SerialPrint("<-", "Telegram", "chat ID: " + String(jsonReadInt(configSetupJson, "chatId")) + "\n" + list);
+        SerialPrint("<-", F("Telegram"), "chat ID: " + String(jsonReadInt(configSetupJson, "chatId")) + "\n" + list);
     } else {
         myBot->sendMessage(jsonReadInt(configSetupJson, "chatId"), "ID: " + chipId + ", Name: " + jsonReadStr(configSetupJson, F("name")));
         myBot->sendMessage(jsonReadInt(configSetupJson, "chatId"), F("Wrong order, use /all to get all values, /get_id to get value, or /set_id_value to set value"));
@@ -74,15 +77,15 @@ void sendTelegramMsg() {
     if (sabject == "often") {
         msg.replace("#", " ");
         myBot->sendMessage(jsonReadInt(configSetupJson, "chatId"), msg);
-        SerialPrint("<-", "Telegram", "chat ID: " + String(jsonReadInt(configSetupJson, "chatId")) + ", msg: " + msg);
+        SerialPrint("<-", F("Telegram"), "chat ID: " + String(jsonReadInt(configSetupJson, "chatId")) + ", msg: " + msg);
     } else {
         String prevMsg = jsonReadStr(telegramMsgJson, sabject);
         if (prevMsg != msg) {
             jsonWriteStr(telegramMsgJson, sabject, msg);
             msg.replace("#", " ");
             sabject.replace("#", " ");
-            myBot->sendMessage(jsonReadInt(configSetupJson, "chatId"), sabject + " " + msg);
-            SerialPrint("<-", "Telegram", "chat ID: " + String(jsonReadInt(configSetupJson, "chatId")) + ", msg: " + sabject + " " + msg);
+            myBot->sendMessage(jsonReadInt(configSetupJson, "chatId"), msg);
+            SerialPrint("<-", F("Telegram"), "chat ID: " + String(jsonReadInt(configSetupJson, "chatId")) + ", msg: " + msg);
         }
     }
 }

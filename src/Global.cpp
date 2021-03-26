@@ -11,7 +11,6 @@ PubSubClient mqtt(espClient);
 StringCommand sCmd;
 AsyncWebServer server(80);
 
-
 /*
 * Global vars
 */
@@ -28,10 +27,21 @@ String configOptionJson = "{}";
 String telegramMsgJson = "{}";
 
 // Mqtt
+String mqttServer = "";
+int mqttPort = 0;
+String mqttPrefix = "";
+String mqttUser = "";
+String mqttPass = "";
+
 String chipId = "";
 String prex = "";
 String all_widgets = "";
 String scenario = "";
+String mqttRootDevice = "";
+
+int mqttConnectAttempts = 0;
+bool changeBroker = false;
+int currentBroker = 1;
 
 //orders and events
 String orderBuf = "";
@@ -51,8 +61,8 @@ int buttonOut_EnterCounter = -1;
 String input_KeyList = "";
 int input_EnterCounter = -1;
 //=========================================
-String output_KeyList= "";
-int output_EnterCounter= -1;
+String output_KeyList = "";
+int output_EnterCounter = -1;
 //=========================================
 String pwmOut_KeyList = "";
 int pwmOut_EnterCounter = -1;
@@ -64,7 +74,6 @@ String logging_KeyList = "";
 int logging_EnterCounter = -1;
 //=========================================
 
-
 String itemName;
 String presetName;
 
@@ -72,12 +81,9 @@ String presetName;
 String serverIP;
 
 // Scenario
-int scenario_line_status[] = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 };
+int scenario_line_status[] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
 int lastVersion;
 
 boolean busScanFlag = false;
 boolean fsCheckFlag = false;
 boolean delElementFlag = false;
-
-
-

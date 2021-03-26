@@ -2,10 +2,13 @@
 
 #include <Arduino.h>
 
-extern String mqttPrefix;
-extern String mqttRootDevice;
+
 
 void mqttInit();
+void selectBroker();
+void getMqttData1();
+void getMqttData2();
+bool isSecondBrokerSet();
 boolean mqttConnect();
 void mqttReconnect();
 void mqttLoop();

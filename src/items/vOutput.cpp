@@ -1,13 +1,12 @@
 #include "Consts.h"
 #ifdef EnableOutput
-#include "items/vOutput.h"
-
 #include <Arduino.h>
 
 #include "BufferExecute.h"
 #include "Class/LineParsing.h"
 #include "Clock.h"
 #include "Global.h"
+#include "items/vOutput.h"
 
 Output::Output(String key) {
     _key = key;
@@ -25,7 +24,7 @@ void Output::execute(String value) {
 
 MyOutputVector* myOutput = nullptr;
 
-void output() {
+void outputValue() {
     myLineParsing.update();
     String key = myLineParsing.gkey();
     myLineParsing.clear();
@@ -44,6 +43,9 @@ void output() {
 void outputExecute() {
     String key = sCmd.order();
     String value = sCmd.next();
+
+    value.replace("#", " ");
+    value.replace("%date%", timeNow->getDateTimeDotFormated());
 
     int number = getKeyNum(key, output_KeyList);
 

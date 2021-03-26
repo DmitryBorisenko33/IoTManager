@@ -76,9 +76,9 @@ void setup() {
 #ifdef SSDP_ENABLED
     SsdpInit();
 #endif
-#ifdef ESP8266
+
     getFSInfo();
-#endif
+
     //testsPerform();
 
     just_load = false;
@@ -98,7 +98,7 @@ void loop() {
     timeNow->loop();
     mqttLoop();
 
-    myScenario->loop();
+    myScenario->loop2();
     loopCmdExecute();
 
     myNotAsyncActions->loop();

@@ -7,28 +7,6 @@
 #include "items/vLogging.h"
 #include "items/vSensorNode.h"
 
-enum MqttBroker { MQTT_PRIMARY,
-                  MQTT_RESERVE };
-
-MqttBroker activeBroker = MQTT_PRIMARY;
-
-String mqttPrefix;
-String mqttRootDevice;
-String mqttPass;
-String mqttServer;
-String mqttUser;
-uint16_t mqttPort{0};
-uint16_t reconnectionCounter{0};
-uint16_t fallbackCounter{0};
-
-const String getParamName(const char* param, MqttBroker broker) {
-    return String("mqtt") + param + (broker == MQTT_RESERVE ? "2" : "");
-}
-
-bool checkBrokerParams(MqttBroker broker) {
-    return !jsonReadStr(configSetupJson, getParamName("Server", broker)).isEmpty();
-}
-
 void mqttInit() {
     myNotAsyncActions->add(
         do_MQTTPARAMSCHANGED, [&](void*) {
@@ -42,37 +20,16 @@ void mqttInit() {
         WIFI_MQTT_CONNECTION_CHECK, MQTT_RECONNECT_INTERVAL,
         [&](void*) {
             if (WiFi.status() == WL_CONNECTED) {
-                SerialPrint("I", "WIFI", "OK");
+                SerialPrint("I", F("WIFI"), F("OK"));
                 if (mqtt.connected()) {
-                    if (activeBroker == MQTT_RESERVE) {
-                        // при 20 cекундных интервалах проверки, каждые 100 сек
-                        if (fallbackCounter++ > 5) {
-                            if (checkBrokerParams(MQTT_PRIMARY)) {
-                                activeBroker = MQTT_PRIMARY;
-                                fallbackCounter = 0;
-                                mqttReconnect();
-                            }
-                        }
-                    } else {
-                        SerialPrint("I", "MQTT", "OK");
-                        setLedStatus(LED_OFF);
-                    }
+                    SerialPrint("I", F("MQTT"), "OK, broker No " + String(currentBroker));
+                    setLedStatus(LED_OFF);
                 } else {
-                    SerialPrint("E", "MQTT", "lost connection");
-                    if (reconnectionCounter++ > 5) {
-                        if (activeBroker == MQTT_PRIMARY) {
-                            if (checkBrokerParams(MQTT_RESERVE)) {
-                                activeBroker = MQTT_RESERVE;
-                            }
-                        } else {
-                            activeBroker = MQTT_PRIMARY;
-                        }
-                        reconnectionCounter = 0;
-                    }
+                    SerialPrint("E", F("MQTT"), F("Connection lost"));
                     mqttConnect();
                 }
             } else {
-                SerialPrint("E", "WIFI", "Lost WiFi connection");
+                SerialPrint("E", F("WIFI"), F("Lost WiFi connection"));
                 ts.remove(WIFI_MQTT_CONNECTION_CHECK);
                 startAPMode();
             }
@@ -88,7 +45,7 @@ void mqttInit() {
 }
 
 void mqttDisconnect() {
-    SerialPrint("I", "MQTT", "disconnect");
+    SerialPrint("I", F("MQTT"), F("disconnected"));
     mqtt.disconnect();
 }
 
@@ -105,7 +62,8 @@ void mqttLoop() {
 }
 
 void mqttSubscribe() {
-    SerialPrint("I", "MQTT", "subscribe");
+    SerialPrint("I", F("MQTT"), F("subscribed"));
+    SerialPrint("I", "MQTT", mqttRootDevice);
     mqtt.subscribe(mqttPrefix.c_str());
     mqtt.subscribe((mqttRootDevice + "/+/control").c_str());
     mqtt.subscribe((mqttRootDevice + "/update").c_str());
@@ -117,42 +75,92 @@ void mqttSubscribe() {
     }
 }
 
-bool readBrokerParams(MqttBroker broker) {
-    if (!checkBrokerParams(broker)) {
-        return false;
+void selectBroker() {
+    if (changeBroker) {
+        changeBroker = false;
+        if (currentBroker == 1) {
+            getMqttData2();
+        } else if (currentBroker == 2) {
+            getMqttData1();
+        }
+    } else {
+        if (currentBroker == 1) {
+            getMqttData1();
+        } else if (currentBroker == 2) {
+            getMqttData2();
+        }
     }
-    mqttServer = jsonReadStr(configSetupJson, getParamName("Server", broker));
-    mqttPort = jsonReadInt(configSetupJson, getParamName("Port", broker));
-    mqttUser = jsonReadStr(configSetupJson, getParamName("User", broker));
-    mqttPass = jsonReadStr(configSetupJson, getParamName("Pass", broker));
+}
 
-    return true;
+void getMqttData1() {
+    currentBroker = 1;
+    mqttServer = jsonReadStr(configSetupJson, F("mqttServer"));
+    mqttPort = jsonReadInt(configSetupJson, F("mqttPort"));
+    mqttPrefix = jsonReadStr(configSetupJson, F("mqttPrefix"));
+    mqttUser = jsonReadStr(configSetupJson, F("mqttUser"));
+    mqttPass = jsonReadStr(configSetupJson, F("mqttPass"));
+    prex = mqttPrefix + "/" + chipId;
+}
+
+void getMqttData2() {
+    currentBroker = 2;
+    mqttServer = jsonReadStr(configSetupJson, F("mqttServer2"));
+    mqttPort = jsonReadInt(configSetupJson, F("mqttPort2"));
+    mqttPrefix = jsonReadStr(configSetupJson, F("mqttPrefix2"));
+    mqttUser = jsonReadStr(configSetupJson, F("mqttUser2"));
+    mqttPass = jsonReadStr(configSetupJson, F("mqttPass2"));
+    prex = mqttPrefix + "/" + chipId;
+}
+
+bool isSecondBrokerSet() {
+    bool res = true;
+    if (jsonReadStr(configSetupJson, F("mqttServer2")) == "") {
+        res = false;
+    }
+    if (jsonReadStr(configSetupJson, F("mqttPrefix2")) == "") {
+        res = false;
+    }
+    return res;
 }
 
 boolean mqttConnect() {
-    SerialPrint("I", "MQTT", String("use ") + (activeBroker == MQTT_PRIMARY ? "primary" : "reserve"));
-    if (!checkBrokerParams(activeBroker)) {
-        SerialPrint("E", "MQTT", "empty broker address");
-        return false;
+    selectBroker();
+    bool res = false;
+    if (mqttServer == "") {
+        SerialPrint("E", "MQTT", F("mqttServer empty"));
+        return res;
     }
-    readBrokerParams(activeBroker);
-    SerialPrint("I", "MQTT", "start connection");
-    mqttPrefix = jsonReadStr(configSetupJson, "mqttPrefix");
+    SerialPrint("I", "MQTT", "connection started to broker No " + String(currentBroker));
+
     mqttRootDevice = mqttPrefix + "/" + chipId;
+
     SerialPrint("I", "MQTT", "broker " + mqttServer + ":" + String(mqttPort, DEC));
     SerialPrint("I", "MQTT", "topic " + mqttRootDevice);
     setLedStatus(LED_FAST);
     mqtt.setServer(mqttServer.c_str(), mqttPort);
-    bool res = false;
+
     if (!mqtt.connected()) {
         if (mqtt.connect(chipId.c_str(), mqttUser.c_str(), mqttPass.c_str())) {
-            SerialPrint("I", "MQTT", "connected");
+            SerialPrint("I", F("MQTT"), F("✔ connected"));
+            if (currentBroker == 1) jsonWriteStr(configSetupJson, F("warning4"), F("<div style='margin-top:10px;margin-bottom:10px;'><font color='black'><p style='border: 1px solid #DCDCDC; border-radius: 3px; background-color: #8ef584; padding: 10px;'>Подключено к основному брокеру</p></font></div>"));
+            if (currentBroker == 2) jsonWriteStr(configSetupJson, F("warning4"), F("<div style='margin-top:10px;margin-bottom:10px;'><font color='black'><p style='border: 1px solid #DCDCDC; border-radius: 3px; background-color: #8ef584; padding: 10px;'>Подключено к резервному брокеру</p></font></div>"));
             setLedStatus(LED_OFF);
             mqttSubscribe();
             res = true;
         } else {
-            SerialPrint("E", "MQTT", "could't connect, retry in " + String(MQTT_RECONNECT_INTERVAL / 1000) + "s");
+            mqttConnectAttempts++;
+            SerialPrint("E", F("MQTT"), "🡆 Attempt No: " + String(mqttConnectAttempts) + " could't connect, retry in " + String(MQTT_RECONNECT_INTERVAL / 1000) + "s");
             setLedStatus(LED_FAST);
+            jsonWriteStr(configSetupJson, F("warning4"), F("<div style='margin-top:10px;margin-bottom:10px;'><font color='black'><p style='border: 1px solid #DCDCDC; border-radius: 3px; background-color: #fa987a; padding: 10px;'>Не подключено брокеру</p></font></div>"));
+            if (mqttConnectAttempts >= CHANGE_BROKER_AFTER) {
+                mqttConnectAttempts = 0;
+                if (isSecondBrokerSet()) {
+                    changeBroker = true;
+                    SerialPrint("E", F("MQTT"), "✖ Broker fully missed (" + String(CHANGE_BROKER_AFTER) + " attempts passed), try connect to another one");
+                } else {
+                    SerialPrint("E", F("MQTT"), F("Secound broker not seted"));
+                }
+            }
         }
     }
     return res;
@@ -170,7 +178,7 @@ void mqttCallback(char* topic, uint8_t* payload, size_t length) {
     //SerialPrint("I", "=>MQTT", payloadStr);
 
     if (payloadStr.startsWith("HELLO")) {
-        SerialPrint("I", "MQTT", "Full update");
+        SerialPrint("I", F("MQTT"), F("Full update"));
         publishWidgets();
         publishState();
 #ifdef GATE_MODE
@@ -192,7 +200,7 @@ void mqttCallback(char* topic, uint8_t* payload, size_t length) {
 
         loopCmdAdd(order);
 
-        SerialPrint("I", "=>MQTT", "Msg from iotmanager app: " + key + " " + payloadStr);
+        SerialPrint("I", F("=>MQTT"), "Msg from iotmanager app: " + key + " " + payloadStr);
     }
 
     else if (topicStr.indexOf("event") != -1) {
@@ -202,7 +210,7 @@ void mqttCallback(char* topic, uint8_t* payload, size_t length) {
         if (topicStr.indexOf(chipId) == -1) {
             String devId = selectFromMarkerToMarker(topicStr, "/", 2);
             String key = selectFromMarkerToMarker(topicStr, "/", 3);
-            SerialPrint("I", "=>MQTT", "Received event from other device: '" + devId + "' " + key + " " + payloadStr);
+            SerialPrint("I", F("=>MQTT"), "Received event from other device: '" + devId + "' " + key + " " + payloadStr);
             String event = key + " " + payloadStr + ",";
             eventBuf += event;
         }
@@ -214,7 +222,7 @@ void mqttCallback(char* topic, uint8_t* payload, size_t length) {
         }
         String devId = selectFromMarkerToMarker(topicStr, "/", 2);
         String key = selectFromMarkerToMarker(topicStr, "/", 3);
-        SerialPrint("I", "=>MQTT", "Received direct order " + key + " " + payloadStr);
+        SerialPrint("I", F("=>MQTT"), "Received direct order " + key + " " + payloadStr);
         String order = key + " " + payloadStr + ",";
         orderBuf += order;
     }
@@ -223,7 +231,7 @@ void mqttCallback(char* topic, uint8_t* payload, size_t length) {
         if (topicStr.indexOf("scen") != -1) {
             writeFile(String(DEVICE_SCENARIO_FILE), payloadStr);
             loadScenario();
-            SerialPrint("I", "=>MQTT", "Scenario received");
+            SerialPrint("I", F("=>MQTT"), F("Scenario received"));
         }
     }
 }
@@ -239,7 +247,7 @@ boolean publish(const String& topic, const String& data) {
 boolean publishData(const String& topic, const String& data) {
     String path = mqttRootDevice + "/" + topic;
     if (!publish(path, data)) {
-        SerialPrint("[E]", "MQTT", "on publish data");
+        SerialPrint("E", F("MQTT"), F("on publish data"));
         return false;
     }
     return true;
@@ -248,7 +256,7 @@ boolean publishData(const String& topic, const String& data) {
 boolean publishChart(const String& topic, const String& data) {
     String path = mqttRootDevice + "/" + topic + "/status";
     if (!publish(path, data)) {
-        SerialPrint("[E]", "MQTT", "on publish chart");
+        SerialPrint("E", F("MQTT"), F("on publish chart"));
         return false;
     }
     return true;
@@ -280,7 +288,7 @@ boolean publishAnyJsonKey(const String& topic, const String& key, const String& 
 
 boolean publishEvent(const String& topic, const String& data) {
     String path = mqttRootDevice + "/" + topic + "/event";
-    return mqtt.publish(path.c_str(), data.c_str(), true);
+    return mqtt.publish(path.c_str(), data.c_str(), false);
 }
 
 boolean publishInfo(const String& topic, const String& data) {
@@ -316,12 +324,12 @@ void publishWidgets() {
 void publishWidgets() {
     auto file = seekFile("layout.txt");
     if (!file) {
-        SerialPrint("[E]", "MQTT", "no file layout.txt");
+        SerialPrint("E", F("MQTT"), F("no file layout.txt"));
         return;
     }
     while (file.available()) {
         String payload = file.readStringUntil('\n');
-        SerialPrint("I", "MQTT", "widgets: " + payload);
+        SerialPrint("I", F("MQTT"), "widgets: " + payload);
         publishData("config", payload);
     }
     file.close();

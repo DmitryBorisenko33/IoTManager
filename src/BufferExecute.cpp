@@ -29,7 +29,7 @@ void loopCmdAdd(const String& cmdStr) {
             if (jsonReadBool(configSetupJson, "uartEvents")) {
                 if (myUART) {
                     myUART->print(cmdStr);
-                    SerialPrint("I", "<=UART", cmdStr);
+                    SerialPrint("I", F("<=UART"), cmdStr);
                 }
             }
         }
@@ -70,13 +70,13 @@ void csvCmdExecute(String& cmdStr) {
 #ifdef EnableButtonIn
                 sCmd.addCommand(order.c_str(), buttonIn);
 #endif
-            } else if (order == F("input")) {
+            } else if (order == F("input-value")) {
 #ifdef EnableInput
-                sCmd.addCommand(order.c_str(), input);
+                sCmd.addCommand(order.c_str(), inputValue);
 #endif
-            } else if (order == F("output")) {
+            } else if (order == F("output-value")) {
 #ifdef EnableOutput
-                sCmd.addCommand(order.c_str(), output);
+                sCmd.addCommand(order.c_str(), outputValue);             
 #endif
             } else if (order == F("analog-adc")) {
 #ifdef EnableSensorAnalog
@@ -156,7 +156,7 @@ void spaceCmdExecute(String& cmdStr) {
 void loopCmdExecute() {
     if (orderBuf.length()) {
         String tmp = selectToMarker(orderBuf, ",");  //выделяем первую команду rel 5 1,
-        SerialPrint("I", "CMD", "do: " + tmp);
+        SerialPrint("I", F("CMD"), "do: " + tmp);
         sCmd.readStr(tmp);                                //выполняем
         orderBuf = deleteBeforeDelimiter(orderBuf, ",");  //осекаем
     }

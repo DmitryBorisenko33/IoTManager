@@ -17,10 +17,10 @@
 #include "items/vSensorCcs811.h"
 #include "items/vSensorDallas.h"
 #include "items/vSensorDht.h"
+#include "items/vSensorNode.h"
 #include "items/vSensorPzem.h"
 #include "items/vSensorUltrasonic.h"
 #include "items/vSensorUptime.h"
-#include "items/vSensorNode.h"
 
 void loadConfig() {
     configSetupJson = readFile("config.json", 4096);
@@ -40,7 +40,7 @@ void loadConfig() {
     jsonWriteInt(configSetupJson, "firmware_version", FIRMWARE_VERSION);
     jsonWriteStr(configSetupJson, "firmware_name", FIRMWARE_NAME);
 
-    prex = jsonReadStr(configSetupJson, "mqttPrefix") + "/" + chipId;
+    selectBroker();
 
     serverIP = jsonReadStr(configSetupJson, "serverip");
 
@@ -75,12 +75,16 @@ void deviceInit() {
     }
 
     savedFromWeb = false;
-    //outcoming_date();
+    //publishWidgets();
+    //publishState();
 }
 
 void loadScenario() {
     if (jsonReadStr(configSetupJson, "scen") == "1") {
-        scenario = readFile(String(DEVICE_SCENARIO_FILE), 2048);
+        scenario = readFile(String(DEVICE_SCENARIO_FILE), 10240);
+        scenario.replace("~\n","");
+        scenario.replace("~","");
+        //Serial.println(scenario);
     }
 }
 

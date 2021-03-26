@@ -1,13 +1,12 @@
 #include "Consts.h"
 #ifdef EnableInput
-#include "items/vInput.h"
-
 #include <Arduino.h>
 
 #include "BufferExecute.h"
 #include "Class/LineParsing.h"
 #include "Clock.h"
 #include "Global.h"
+#include "items/vInput.h"
 
 //this class save date to flash
 Input::Input(String key, String widget) {
@@ -36,7 +35,7 @@ void Input::execute(String value) {
 
 MyInputVector* myInput = nullptr;
 
-void input() {
+void inputValue() {
     myLineParsing.update();
     String widget = myLineParsing.gfile();
     String key = myLineParsing.gkey();
@@ -57,14 +56,27 @@ void inputExecute() {
     String key = sCmd.order();
     String value = sCmd.next();
 
-    if (!isDigitStr(value)) {            //если значение - текст
-        if (value.indexOf(":") == -1) {  //если этот текст не время
-            String valueJson = getValue(value);
-            if (valueJson != "no value") {  //если это ключ переменной
-                value = valueJson;
-            } else {  //если это просто текст
-                value.replace("#", " ");
-                value.replace("%date%", timeNow->getDateTimeDotFormated());
+    if (!isDigitStr(value)) {                 //если значение - текст
+        if (value.indexOf(":") == -1) {       //если этот текст не время
+            if (value.indexOf("++") != -1) {  //если тест - инкримент
+                String prevValue = getValue(key);
+                if (prevValue != "no value") {
+                    int prevValueInt = prevValue.toInt();
+                    prevValueInt++;
+                    value = String(prevValueInt);
+                }
+            } else if (value.indexOf("--") != -1) {  //если тест - дикремент
+                String prevValue = getValue(key);
+                if (prevValue != "no value") {
+                    int prevValueInt = prevValue.toInt();
+                    prevValueInt--;
+                    value = String(prevValueInt);
+                }
+            } else {  //остальные случаи любого текста
+                String valueJson = getValue(value);
+                if (valueJson != "no value") {  //если это ключ переменной
+                    value = valueJson;
+                }
             }
         }
     }
